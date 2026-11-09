@@ -25,7 +25,7 @@ Eigenständiges Gilden-Addon für **World of Warcraft: Forever** (Interface 1600
 - Mitgliederliste: Stufe, Name in Klassenfarbe, AFK/DND, Gebiet, Notiz, Offiziersnotiz (mit Berechtigung), optional Rang
 - **Layer-Anzeige**: eigene Layer-ID und die der Gildenmitglieder, die Gildenblick ebenfalls nutzen (grün = dein Layer)
 
-<img src="docs/gildenblick-button.png" alt="Gildenblick-Button">
+<img src="docs/gildenblick-button-layer.png" alt="Gildenblick-Button mit Layer-Anzeige">
 
 ## Bedienung
 
