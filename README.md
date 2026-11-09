@@ -64,13 +64,11 @@ Eigenständiges Gilden-Addon für **World of Warcraft: Forever** (Interface 1600
 
 ## Neue Version veröffentlichen
 
-1. Änderungen committen, Eintrag in `CHANGELOG.md` unter `## x.y.z` ergänzen.
-2. Tag setzen und pushen:
-   ```
-   git tag v1.2.0
-   git push origin v1.2.0
-   ```
-3. Die GitHub Action schreibt die Version in die TOC, baut `Gildenblick-1.2.0.zip` und legt den Release an.
+1. In `Gildenblick/Gildenblick.toc` die Zeile `## Version:` erhöhen (z. B. `1.2.0`).
+2. In `CHANGELOG.md` einen Abschnitt `## 1.2.0` ergänzen.
+3. Auf `main` pushen. Die GitHub Action baut `Gildenblick-1.2.0.zip`, legt den Tag `v1.2.0` an und veröffentlicht den Release mit dem Changelog-Abschnitt als Text.
+
+Pushes ohne neue Versionsnummer erzeugen keinen Release. Manuell auslösen geht unter *Actions → Release → Run workflow*.
 
 ## Hinweise
 

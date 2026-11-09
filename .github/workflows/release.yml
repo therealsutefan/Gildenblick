@@ -1,13 +1,19 @@
 name: Release
 
-# Bei jedem Tag "vX.Y.Z" wird die Version in die TOC geschrieben,
-# Gildenblick-X.Y.Z.zip gebaut (Ordner "Gildenblick" in der ZIP)
-# und als GitHub-Release veroeffentlicht.
+# Liest die Version aus Gildenblick/Gildenblick.toc (## Version: X.Y.Z).
+# Gibt es noch keinen Release vX.Y.Z, wird Gildenblick-X.Y.Z.zip gebaut
+# (Ordner "Gildenblick" in der ZIP) und als Release veroeffentlicht.
+# Der Tag vX.Y.Z wird dabei automatisch angelegt.
 
 on:
   push:
-    tags:
-      - "v*"
+    branches:
+      - main
+    paths:
+      - "Gildenblick/**"
+      - "CHANGELOG.md"
+      - ".github/workflows/release.yml"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -18,16 +24,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Version setzen
+      - name: Version lesen
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION=$(sed -n 's/^## Version:[[:space:]]*\([^[:space:]]*\).*/\1/p' Gildenblick/Gildenblick.toc | head -1)
+          if [ -z "$VERSION" ]; then echo "Keine Version in der TOC gefunden" >&2; exit 1; fi
           echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
-          sed -i "s/^## Version: .*/## Version: ${VERSION}/" Gildenblick/Gildenblick.toc
+          echo "Version: ${VERSION}"
+
+      - name: Pruefen, ob der Release schon existiert
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "v${VERSION}" >/dev/null 2>&1; then
+            echo "Release v${VERSION} existiert bereits - nichts zu tun."
+            echo "SKIP=1" >> "$GITHUB_ENV"
+          fi
 
       - name: ZIP bauen
+        if: env.SKIP != '1'
         run: zip -r "Gildenblick-${VERSION}.zip" Gildenblick
 
       - name: Release-Notizen aus CHANGELOG.md
+        if: env.SKIP != '1'
         run: |
           awk -v v="$VERSION" '
             $0 ~ "^## \\[?" v "\\]?([ ]|$)" { f = 1; next }
@@ -37,9 +55,11 @@ jobs:
           [ -s notes.md ] || echo "Siehe CHANGELOG.md" > notes.md
 
       - name: Release veroeffentlichen
+        if: env.SKIP != '1'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" "Gildenblick-${VERSION}.zip" \
+          gh release create "v${VERSION}" "Gildenblick-${VERSION}.zip" \
+            --target "$GITHUB_SHA" \
             --title "Gildenblick ${VERSION}" \
             --notes-file notes.md
