@@ -2,7 +2,7 @@
 
 Eigenständiges Gilden-Addon für **World of Warcraft: Forever** (Interface 16001) – im Stil von Titan Panel Guild bzw. Socialite, aber ohne Abhängigkeiten.
 
-<img src="docs/tooltip.png" alt="Gildenblick-Tooltip" width="420">
+<img src="docs/gildenblick-tooltip.png" alt="Gildenblick-Tooltip" width="420">
 
 ## Installation
 
@@ -25,7 +25,7 @@ Eigenständiges Gilden-Addon für **World of Warcraft: Forever** (Interface 1600
 - Mitgliederliste: Stufe, Name in Klassenfarbe, AFK/DND, Gebiet, Notiz, Offiziersnotiz (mit Berechtigung), optional Rang
 - **Layer-Anzeige**: eigene Layer-ID und die der Gildenmitglieder, die Gildenblick ebenfalls nutzen (grün = dein Layer)
 
-<img src="docs/button.png" alt="Gildenblick-Button">
+<img src="docs/gildenblick-button.png" alt="Gildenblick-Button">
 
 ## Bedienung
 
