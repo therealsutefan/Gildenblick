@@ -1010,12 +1010,18 @@ ev:SetScript("OnEvent", function(self, event, arg1, ...)
             for k, v in pairs(DEFAULTS) do
                 if db[k] == nil then db[k] = v end
             end
-            RegisterLDB() -- frueh, damit ElvUI/Titan das Objekt beim Init sehen
+            pcall(RegisterLDB) -- frueh, damit ElvUI/Titan das Objekt beim Init sehen
             self:UnregisterEvent("ADDON_LOADED")
         end
     elseif event == "PLAYER_LOGIN" then
         RestoreButton()
-        RegisterLDB()
+        pcall(RegisterLDB)
+        local ver = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(ADDON_NAME, "Version")) or ""
+        if db.showButton then
+            Print(ver .. " geladen. Button: oben in der Bildschirmmitte (verschiebbar). Hilfe: /gblick")
+        else
+            Print(ver .. " geladen. Button ist ausgeblendet – einblenden mit /gblick button")
+        end
         UpdateText()
         RequestRoster(true)
         C_Timer.NewTicker(30, function() RequestRoster() end)

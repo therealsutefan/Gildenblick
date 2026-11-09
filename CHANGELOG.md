@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.1
+
+- Meldung im Chat nach dem Einloggen („Gildenblick … geladen“) mit Hinweis, wo der Button sitzt
+- Anmeldung als LibDataBroker-Quelle abgesichert: ein Fehler dort verhindert nicht mehr den Start des Addons
+- README: Abschnitt „Addon taucht nicht auf?“
+
 ## 1.1.0
 
 - Layer-Anzeige: eigene Layer-ID am Button und im Tooltip-Kopf (aus NPC-GUIDs, erst nach Bestätigung durch zwei verschiedene NPCs; nicht im Kampf und in Instanzen)

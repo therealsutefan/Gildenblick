@@ -2,7 +2,7 @@
 ## Title: Gildenblick
 ## Notes: Gilden-Tooltip: Online/Gesamt, Stufen, Klassen, Notizen, Layer. Eigenstaendig, optional als LDB-Quelle (ElvUI, Titan Panel ...).
 ## Author: the_real_sutefan
-## Version: 1.1.0
+## Version: 1.1.1
 ## SavedVariables: GildenblickDB
 ## OptionalDeps: ElvUI, Titan, ChocolateBar, Bazooka
 ## IconTexture: Interface\Icons\INV_Shirt_GuildTabard_01

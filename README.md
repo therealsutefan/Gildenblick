@@ -17,6 +17,15 @@ Eigenständiges Gilden-Addon für **World of Warcraft: Forever** (Interface 1600
 ### Mit WowUp (automatische Updates)
 „Install from URL“ → die URL dieses Repos einfügen. Falls WowUp den Forever-Client nicht selbst findet, den Ordner `_forever_` manuell hinzufügen.
 
+### Addon taucht nicht auf?
+
+1. **Ordner prüfen** – häufigster Fehler: Windows „Alle extrahieren“ legt einen Zusatzordner an.  
+   Richtig: `...\_forever_\Interface\AddOns\Gildenblick\Gildenblick.toc`  
+   Falsch: `...\AddOns\Gildenblick-1.1.1\Gildenblick\Gildenblick.toc` oder `...\AddOns\Gildenblick-main\...`
+2. **Richtiger Client** – `_forever_`, nicht `_retail_` oder `_classic_era_`.
+3. **Addon-Liste** – im Charakterauswahl-Bildschirm unter „AddOns“: Gildenblick muss angehakt sein.
+4. **Im Spiel** – nach dem Einloggen erscheint im Chat „Gildenblick … geladen“. Der Button sitzt oben in der Bildschirmmitte. Nicht zu sehen? `/gblick reset` setzt Position und Einstellungen zurück.
+
 ## Funktionen
 
 - Button mit **Online / Gesamt** (verschiebbar), Eintrag im Addon-Menü an der Minimap
