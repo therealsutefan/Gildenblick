@@ -1,0 +1,13 @@
+## Interface: 16001
+## Title: Gildenblick
+## Notes: Gilden-Tooltip: Online/Gesamt, Stufen, Klassen, Notizen, Layer. Eigenstaendig, optional als LDB-Quelle (ElvUI, Titan Panel ...).
+## Author: the_real_sutefan
+## Version: 1.1.0
+## SavedVariables: GildenblickDB
+## OptionalDeps: ElvUI, Titan, ChocolateBar, Bazooka
+## IconTexture: Interface\Icons\INV_Shirt_GuildTabard_01
+## AddonCompartmentFunc: Gildenblick_OnCompartmentClick
+## AddonCompartmentFuncOnEnter: Gildenblick_OnCompartmentEnter
+## AddonCompartmentFuncOnLeave: Gildenblick_OnCompartmentLeave
+
+Gildenblick.lua

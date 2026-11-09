@@ -1,0 +1,45 @@
+name: Release
+
+# Bei jedem Tag "vX.Y.Z" wird die Version in die TOC geschrieben,
+# Gildenblick-X.Y.Z.zip gebaut (Ordner "Gildenblick" in der ZIP)
+# und als GitHub-Release veroeffentlicht.
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Version setzen
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
+          sed -i "s/^## Version: .*/## Version: ${VERSION}/" Gildenblick/Gildenblick.toc
+
+      - name: ZIP bauen
+        run: zip -r "Gildenblick-${VERSION}.zip" Gildenblick
+
+      - name: Release-Notizen aus CHANGELOG.md
+        run: |
+          awk -v v="$VERSION" '
+            $0 ~ "^## \\[?" v "\\]?([ ]|$)" { f = 1; next }
+            /^## / { f = 0 }
+            f
+          ' CHANGELOG.md > notes.md
+          [ -s notes.md ] || echo "Siehe CHANGELOG.md" > notes.md
+
+      - name: Release veroeffentlichen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" "Gildenblick-${VERSION}.zip" \
+            --title "Gildenblick ${VERSION}" \
+            --notes-file notes.md
