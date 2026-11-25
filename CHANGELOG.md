@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.0
+
+- Layer-Anzeige entfernt: Seit dem Forever-Hotfix vom 20.11.2026 können Addons Layer nicht mehr aus NPC-GUIDs lesen. Entfernt wurden Layer-ID am Button, „Dein Layer“-Zeile, Layer-Spalte, Sortierung nach Layer, `/gblick layer` und der Layer-Austausch per Gilden-Addon-Nachricht.
+- Gespeicherte Sortierung „layer“ wird automatisch auf „Name“ zurückgesetzt.
+
 ## 1.1.1
 
 - Meldung im Chat nach dem Einloggen („Gildenblick … geladen“) mit Hinweis, wo der Button sitzt

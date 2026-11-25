@@ -10,7 +10,6 @@ local DEFAULTS = {
     point            = nil,      -- {point, relPoint, x, y}
     sortBy           = "name",   -- rank | name | level | class | zone
     showRank         = false,    -- Rang-Spalte anzeigen
-    showLayer        = true,     -- Layer-Erkennung + Austausch mit der Gilde
     sortDesc         = false,    -- Sortierung umkehren
     showOffline      = false,
     showNotes        = true,
@@ -21,7 +20,7 @@ local DEFAULTS = {
 }
 local db
 
-local SORT_LABELS = { rank = "Rang", name = "Name", level = "Stufe", class = "Klasse", zone = "Gebiet", layer = "Layer" }
+local SORT_LABELS = { rank = "Rang", name = "Name", level = "Stufe", class = "Klasse", zone = "Gebiet" }
 
 local function Print(msg)
     print("|cff33ccffGildenblick|r: " .. msg)
@@ -184,125 +183,12 @@ local function Scan()
     end
 end
 
----------------------------------------------------------------------------
--- Layer-Erkennung
--- Forever liefert keine offizielle Layer-Nummer. Die Kennung stammt aus dem
--- zoneUID-Feld der GUID von NPCs (Ziel, Mouseover, Namensplaketten).
--- Eine neue Kennung gilt erst, wenn zwei verschiedene NPCs sie bestaetigen.
----------------------------------------------------------------------------
-local PREFIX = "Gildenblick"
-local PEER_STALE, PEER_DROP = 600, 1800   -- Sekunden
-local layer = { id = nil, zone = nil, time = 0 }
-local pending
-local peers = {}          -- [Kurzname] = { id, zone, time }
-local OnLayerChanged      -- wird weiter unten gesetzt
-local myName = UnitName("player")
-
-local function IsSecret(v)
-    return type(issecretvalue) == "function" and issecretvalue(v)
-end
-
-local function LayerBlocked()
-    if InCombatLockdown() then return true end
-    local inInstance = IsInInstance()
-    if IsSecret(inInstance) then return true end
-    return inInstance and true or false
-end
-
-local function ObserveUnit(unit)
-    if not db or not db.showLayer or not unit or LayerBlocked() then return end
-    local guid = UnitGUID(unit)
-    if not guid or IsSecret(guid) then return end
-    local unitType, _, _, _, zoneUID = strsplit("-", guid)
-    if unitType ~= "Creature" and unitType ~= "Vehicle" then return end
-    local id = tonumber(zoneUID)
-    if not id or id == 0 then return end
-    local now = GetTime()
-    if layer.id == id then
-        layer.time = now
-        pending = nil
-        return
-    end
-    if pending and pending.id == id and pending.guid ~= guid then
-        layer.id, layer.zone, layer.time = id, GetRealZoneText() or "", now
-        pending = nil
-        if OnLayerChanged then OnLayerChanged() end
-    else
-        pending = { id = id, guid = guid }
-    end
-end
-
-local function ResetLayer()
-    pending = nil
-    if layer.id then
-        layer.id, layer.zone, layer.time = nil, nil, 0
-        if OnLayerChanged then OnLayerChanged() end
-    end
-end
-
--- Layer eines Mitglieds: id, zone, alter (s) oder nil
-local function MemberLayer(m)
-    if not m.online then return nil end
-    if m.name == myName then
-        if layer.id then return layer.id, layer.zone, GetTime() - layer.time end
-        return nil
-    end
-    local p = peers[m.name]
-    if not p then return nil end
-    local age = GetTime() - p.time
-    if age > PEER_DROP then peers[m.name] = nil; return nil end
-    return p.id, p.zone, age
-end
-
-local function AgeText(sec)
-    sec = math.max(0, math.floor(sec or 0))
-    if sec < 60 then return sec .. " s" end
-    return math.floor(sec / 60) .. " min"
-end
-
-local lastSend, sendQueued = 0, false
-local function SendLayer()
-    if not db or not IsInGuild() then return end
-    if not (C_ChatInfo and C_ChatInfo.SendAddonMessage) then return end
-    if LayerBlocked() then return end
-    local now = GetTime()
-    if now - lastSend < 5 then
-        if not sendQueued then
-            sendQueued = true
-            C_Timer.After(5.2 - (now - lastSend), function() sendQueued = false; SendLayer() end)
-        end
-        return
-    end
-    lastSend = now
-    local msg
-    if db.showLayer and layer.id then
-        msg = "L:" .. layer.id .. ":" .. (layer.zone or "")
-    else
-        msg = "L::"
-    end
-    pcall(C_ChatInfo.SendAddonMessage, PREFIX, msg, "GUILD")
-end
-
-local function QueryLayers()
-    if not db or not db.showLayer or not IsInGuild() then return end
-    if not (C_ChatInfo and C_ChatInfo.SendAddonMessage) or LayerBlocked() then return end
-    pcall(C_ChatInfo.SendAddonMessage, PREFIX, "Q", "GUILD")
-end
-
 local SORTERS = {
     rank  = function(a, b) if a.rankIndex ~= b.rankIndex then return a.rankIndex < b.rankIndex end return a.name < b.name end,
     name  = function(a, b) return a.name < b.name end,
     level = function(a, b) if a.level ~= b.level then return a.level > b.level end return a.name < b.name end,
     class = function(a, b) if a.classLoc ~= b.classLoc then return a.classLoc < b.classLoc end return a.name < b.name end,
     zone  = function(a, b) if a.zone ~= b.zone then return a.zone < b.zone end return a.name < b.name end,
-    layer = function(a, b)
-        local ia, ib = MemberLayer(a), MemberLayer(b)
-        local ra = not ia and 2 or (ia == layer.id and 0 or 1)
-        local rb = not ib and 2 or (ib == layer.id and 0 or 1)
-        if ra ~= rb then return ra < rb end
-        if ra == 1 and ia ~= ib then return ia < ib end
-        return a.name < b.name
-    end,
 }
 
 local function GetVisibleMembers()
@@ -323,10 +209,10 @@ end
 ---------------------------------------------------------------------------
 -- Tooltip-Frame (interaktiv: klickbar, scrollbar)
 ---------------------------------------------------------------------------
-local PAD, GAP, ROW_H, NUM_COLS = 10, 12, 15, 7
-local COL_MAX = { 28, 150, 160, 70, 120, 200, 200 }
-local COL_HEAD = { "Lvl", "Name", "Gebiet", "Layer", "Rang", "Notiz", "Offiziersnotiz" }
-local COL_SORT = { "level", "name", "zone", "layer", "rank" }
+local PAD, GAP, ROW_H, NUM_COLS = 10, 12, 15, 6
+local COL_MAX = { 28, 150, 160, 120, 200, 200 }
+local COL_HEAD = { "Lvl", "Name", "Gebiet", "Rang", "Notiz", "Offiziersnotiz" }
+local COL_SORT = { "level", "name", "zone", "rank" }
 local Render -- forward
 
 local tip = CreateFrame("Frame", "GildenblickTooltip", UIParent, "BackdropTemplate")
@@ -400,18 +286,6 @@ local function RowOnEnter(self)
         GameTooltip:AddDoubleLine("Gebiet:", m.zone, 0.8, 0.8, 0.8, 1, 1, 1)
     else
         GameTooltip:AddDoubleLine("Zuletzt online:", "vor " .. LastOnlineText(m), 0.8, 0.8, 0.8, 1, 1, 1)
-    end
-    if db.showLayer then
-        local lid, lzone, lage = MemberLayer(m)
-        if lid then
-            GameTooltip:AddDoubleLine("Layer:", string.format("%d (%s, vor %s)", lid, lzone or "?", AgeText(lage)),
-                0.8, 0.8, 0.8, 1, 1, 1)
-            if lid == layer.id then
-                GameTooltip:AddLine("Auf deinem Layer", 0.25, 1, 0.25)
-            elseif layer.zone and lzone ~= layer.zone then
-                GameTooltip:AddLine("Anderes Gebiet – Layer nicht vergleichbar", 0.6, 0.6, 0.6)
-            end
-        end
     end
     if m.note ~= "" then
         GameTooltip:AddLine(" ")
@@ -542,32 +416,6 @@ function Render()
                 db.sortDesc and " (umgekehrt)" or ""),
             GameFontHighlight, fixed = true,
         }
-        if db.showLayer then
-            local own
-            if LayerBlocked() and not layer.id then
-                own = Col("nicht lesbar (Kampf/Instanz)", GRAY)
-            elseif layer.id then
-                own = Col(layer.id, GREEN) .. Col("  " .. (layer.zone or ""), GRAY)
-            else
-                own = Col("unbekannt – NPC anvisieren oder mit der Maus berühren", GRAY)
-            end
-            local users, same = 0, 0
-            for _, m in ipairs(roster) do
-                if m.name ~= myName then
-                    local lid = MemberLayer(m)
-                    if lid then
-                        users = users + 1
-                        if lid == layer.id then same = same + 1 end
-                    end
-                end
-            end
-            header[#header + 1] = { Col("Dein Layer: ", GOLD) .. own, GameFontHighlightSmall, fixed = true }
-            header[#header + 1] = {
-                string.format("%s%d mit Gildenblick, davon %s auf deinem Layer",
-                    Col("Gilde: ", GOLD), users, Col(same, GREEN)),
-                GameFontHighlightSmall, fixed = true,
-            }
-        end
         if db.showSummary then
             for _, l in ipairs(BuildSummaryLines()) do
                 header[#header + 1] = { "", GameFontHighlightSmall, pack = l }
@@ -584,12 +432,11 @@ function Render()
     local last = math.min(#members, tip.offset + db.maxRows)
 
     local showOfficer = db.showOfficerNotes and CanSeeOfficerNotes()
-    local colOn = { true, true, true, false, db.showRank and true or false, false, false }
+    local colOn = { true, true, true, db.showRank and true or false, false, false }
     for i = first, last do
         local m = members[i]
-        if db.showLayer and MemberLayer(m) then colOn[4] = true end
-        if db.showNotes and m.note ~= "" then colOn[6] = true end
-        if showOfficer and m.officerNote ~= "" then colOn[7] = true end
+        if db.showNotes and m.note ~= "" then colOn[5] = true end
+        if showOfficer and m.officerNote ~= "" then colOn[6] = true end
     end
 
     local rows = {}
@@ -622,19 +469,9 @@ function Render()
             else
                 row.cols[3]:SetText(Col("vor " .. LastOnlineText(m), GRAY))
             end
-            local lid, lzone, lage = MemberLayer(m)
-            if not lid then
-                row.cols[4]:SetText("")
-            elseif lid == layer.id then
-                row.cols[4]:SetText(Col(lid, GREEN))
-            elseif lage > PEER_STALE or (layer.zone and lzone ~= layer.zone) then
-                row.cols[4]:SetText(Col(lid, GRAY))
-            else
-                row.cols[4]:SetText(Col(lid, WHITE))
-            end
-            row.cols[5]:SetText(Col(m.rank, m.online and WHITE or GRAY))
-            row.cols[6]:SetText(Col(m.note, NOTE))
-            row.cols[7]:SetText(Col(m.officerNote, ONOTE))
+            row.cols[4]:SetText(Col(m.rank, m.online and WHITE or GRAY))
+            row.cols[5]:SetText(Col(m.note, NOTE))
+            row.cols[6]:SetText(Col(m.officerNote, ONOTE))
             rows[#rows + 1] = row
         end
     elseif IsInGuild() then
@@ -828,18 +665,9 @@ local function UpdateText()
     else
         text = "Gilde: -"
     end
-    if db.showLayer then
-        text = text .. "   Layer: " .. (layer.id and Col(layer.id, GREEN) or Col("?", GRAY))
-    end
     btn.text:SetText(text)
     btn:SetWidth(math.max(80, btn.text:GetStringWidth() + 20))
     if ldbObj then ldbObj.text = text end
-end
-
-OnLayerChanged = function()
-    UpdateText()
-    SendLayer()
-    if tip:IsShown() then Render() end
 end
 
 local function RestoreButton()
@@ -901,8 +729,7 @@ local function Help()
     print("  lock / unlock - Button sperren/entsperren")
     print("  button - Button ein/aus (" .. OnOff(db.showButton) .. ")")
     print("  rank - Rang-Spalte (" .. OnOff(db.showRank) .. ")")
-    print("  layer - Layer-Anzeige + Austausch (" .. OnOff(db.showLayer) .. ")")
-    print("  sort rank|name|level|class|zone|layer - Sortierung (" .. db.sortBy .. ")")
+    print("  sort rank|name|level|class|zone - Sortierung (" .. db.sortBy .. ")")
     print("  offline - Offline-Mitglieder (" .. OnOff(db.showOffline) .. ")")
     print("  notes - Notizen (" .. OnOff(db.showNotes) .. ")")
     print("  onotes - Offiziersnotizen (" .. OnOff(db.showOfficerNotes) .. ")")
@@ -925,19 +752,7 @@ SlashCmdList.GILDENBLICK = function(msg)
         Print("Button " .. OnOff(db.showButton))
     elseif cmd == "sort" then
         if SORTERS[arg] then db.sortBy = arg; db.sortDesc = false; Print("Sortierung: " .. SORT_LABELS[arg])
-        else Print("Unbekannt. Erlaubt: rank, name, level, class, zone, layer") end
-    elseif cmd == "layer" then
-        db.showLayer = not db.showLayer
-        if not db.showLayer then
-            SendLayer() -- meldet "unbekannt" an die Gilde
-            ResetLayer()
-            wipe(peers)
-        else
-            QueryLayers()
-        end
-        UpdateText()
-        if tip:IsShown() then Render() end
-        Print("Layer-Anzeige " .. OnOff(db.showLayer))
+        else Print("Unbekannt. Erlaubt: rank, name, level, class, zone") end
     elseif cmd == "rank" then
         db.showRank = not db.showRank; Print("Rang-Spalte " .. OnOff(db.showRank))
         if tip:IsShown() then Render() end
@@ -975,33 +790,6 @@ ev:RegisterEvent("PLAYER_LOGIN")
 ev:RegisterEvent("GUILD_ROSTER_UPDATE")
 ev:RegisterEvent("PLAYER_GUILD_UPDATE")
 ev:RegisterEvent("GUILD_MOTD")
-ev:RegisterEvent("PLAYER_TARGET_CHANGED")
-ev:RegisterEvent("UPDATE_MOUSEOVER_UNIT")
-ev:RegisterEvent("NAME_PLATE_UNIT_ADDED")
-ev:RegisterEvent("PLAYER_ENTERING_WORLD")
-ev:RegisterEvent("ZONE_CHANGED_NEW_AREA")
-ev:RegisterEvent("CHAT_MSG_ADDON")
-
-local function OnAddonMessage(prefix, text, channel, sender)
-    if IsSecret(prefix) or prefix ~= PREFIX then return end
-    if IsSecret(text) or IsSecret(sender) or IsSecret(channel) or channel ~= "GUILD" then return end
-    if not db.showLayer or not sender then return end
-    local short = Ambiguate(sender, "guild")
-    if short == myName then return end
-    if text == "Q" then
-        if layer.id then C_Timer.After(math.random(1, 8), SendLayer) end
-        return
-    end
-    local id, zone = text:match("^L:(%d*):(.*)$")
-    if not id then return end
-    if id == "" then
-        peers[short] = nil
-    else
-        peers[short] = { id = tonumber(id), zone = zone, time = GetTime() }
-    end
-    if tip:IsShown() then Render() end
-end
-
 ev:SetScript("OnEvent", function(self, event, arg1, ...)
     if event == "ADDON_LOADED" then
         if arg1 == ADDON_NAME then
@@ -1010,6 +798,9 @@ ev:SetScript("OnEvent", function(self, event, arg1, ...)
             for k, v in pairs(DEFAULTS) do
                 if db[k] == nil then db[k] = v end
             end
+            -- Aufraeumen nach Entfernen der Layer-Funktion (1.2.0)
+            db.showLayer = nil
+            if not SORTERS[db.sortBy] then db.sortBy = DEFAULTS.sortBy end
             pcall(RegisterLDB) -- frueh, damit ElvUI/Titan das Objekt beim Init sehen
             self:UnregisterEvent("ADDON_LOADED")
         end
@@ -1025,33 +816,12 @@ ev:SetScript("OnEvent", function(self, event, arg1, ...)
         UpdateText()
         RequestRoster(true)
         C_Timer.NewTicker(30, function() RequestRoster() end)
-        myName = UnitName("player")
-        if C_ChatInfo and C_ChatInfo.RegisterAddonMessagePrefix then
-            C_ChatInfo.RegisterAddonMessagePrefix(PREFIX)
-        end
-        C_Timer.After(10, QueryLayers)
-        C_Timer.NewTicker(120, function()
-            if db.showLayer and layer.id then SendLayer() end
-        end)
     elseif not db then
         return
     elseif event == "GUILD_ROSTER_UPDATE" or event == "GUILD_MOTD" then
         Scan()
         UpdateText()
         if tip:IsShown() then Render() end
-    elseif event == "PLAYER_TARGET_CHANGED" then
-        ObserveUnit("target")
-    elseif event == "UPDATE_MOUSEOVER_UNIT" then
-        ObserveUnit("mouseover")
-    elseif event == "NAME_PLATE_UNIT_ADDED" then
-        ObserveUnit(arg1)
-    elseif event == "PLAYER_ENTERING_WORLD" or event == "ZONE_CHANGED_NEW_AREA" then
-        if layer.id then
-            ResetLayer()        -- neues Gebiet: Kennung neu ermitteln
-        end
-        if db.showLayer then SendLayer() end
-    elseif event == "CHAT_MSG_ADDON" then
-        OnAddonMessage(arg1, ...)
     elseif event == "PLAYER_GUILD_UPDATE" then
         RequestRoster(true)
         Scan()
